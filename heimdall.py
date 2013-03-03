@@ -12,9 +12,9 @@ __version__ = '.'.join(str(num) for num in __version_info__)
 
 from datetime import datetime, timedelta
 from dateutil.parser import parse
-from math import log
 from os import path
 from time import sleep
+from utils import readable_to_bytes, bytes_to_readable
 import logging
 import psutil
 import yaml
@@ -57,7 +57,7 @@ def limit(last_value):
     limit = config['limit_in_bytes']
     past_usage = _get_window_usage()
     total = psutil.network_io_counters().bytes_sent
-    logging.debug("Bytes sent: {}".format(format_size(total)))
+    logging.debug("Bytes sent: {}".format(bytes_to_readable(total)))
     usage_delta = total - past_usage
     logging.debug("Delta: {}".format(usage_delta))
     pids = psutil.get_pid_list()
@@ -94,7 +94,7 @@ def _set_defaults():
     if config.get('watch_list') is None:
         print('Quitting: You must specify a watch_list in config.yaml!')
         sys.exit(1)
-    limit_in_bytes = _parse_file_size(config.get('limit', '10 GB'))
+    limit_in_bytes = readable_to_bytes(config.get('limit', '10 GB'))
     config['limit_in_bytes'] = config.get('limit_in_bytes', limit_in_bytes)
     config['log_file'] = config.get('log_file', 'log.log')
     config['watch_list'] = set([p.lower() for p in config.get('watch_list', [])])
@@ -115,21 +115,6 @@ def _print_startup_info():
     logging.debug('Will limit following processes if high load:')
     for process in config['watch_list']:
         logging.debug(process)
-
-def _parse_file_size(string):
-    val, unit = string.split()
-    multipliers = {
-                   'kB': 10**3,
-                   'MB': 10**6,
-                   'GB': 10**9,
-                   'TB': 10**12,
-                   'KiB': 2**10,
-                   'MiB': 2**20,
-                   'GiB': 2**30,
-                   'TiB': 2**40,
-                   }
-    multiplier = multipliers.get(unit, 1)
-    return int(val)*multiplier
 
 def _get_window_usage():
     """ Search serially upwards to first value registered within the window.
@@ -160,19 +145,6 @@ def _update_usage_log():
         with open('usage_log.log', 'w'):
             pass
 
-def format_size(num):
-    unit_list = zip(['bytes', 'kB', 'MB', 'GB', 'TB', 'PB'], [0, 0, 1, 2, 2, 2])
-    if num >= 1:
-        exponent = min(int(log(num, 1024)), len(unit_list) - 1)
-        quotient = float(num) / 1024**exponent
-        unit, num_decimals = unit_list[exponent]
-        format_string = '{:.%sf} {}' % (num_decimals)
-        return format_string.format(quotient, unit)
-    elif num == 0:
-        return '0 bytes'
-    else:
-        return "-" + format_size(-num)
-
 if __name__ == '__main__':
     try:
         init()
@@ -182,5 +154,6 @@ if __name__ == '__main__':
             logging.debug("Resuming processes: {}".format(suspended))
             process = psutil.Process(pid)
             process.resume()
+        logging.exception(e.message)
         info = sys.exc_info()
         raise info[0], info[1], info[2]
