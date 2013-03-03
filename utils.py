@@ -28,7 +28,7 @@ def readable_to_bytes(readable):
                    'TiB': 2**40,
                    }
     multiplier = multipliers.get(unit, 1)
-    return int(val)*multiplier
+    return int(float(val)*multiplier)
 
 def bytes_to_readable(num_bytes, binary=True):
     """ Format a number of bytes to human readable form.
