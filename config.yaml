@@ -1,0 +1,4 @@
+watch_list:
+  - dropbox
+
+limit: 0.5 MB
